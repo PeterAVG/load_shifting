@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "load-shifting-streamlit-app"
+version = "0.1.0"
+description = ""
+authors = ["Peter Gade <petervistar@hotmail.com>"]
+maintainers = [
+    "Peter Gade <petervistar@hotmail.com>"
+]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/PeterAVG/load_shifting"
+packages = [
+  { include = "src"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^1.5.2"
+numpy = "^1.23.5"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^2.20.0"
+black = "^22.10.0"
+flake8 = "^6.0.0"
+flake8-print = "^5.0.0"
+flake8-breakpoint = "^1.1.0"
+flake8-bugbear = "^22.12.6"
+mypy = "^0.991"
+isort = "^5.10.1"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+
+[tool.poetry.group.interactive.dependencies]
+ipython = "^8.7.0"
+jupyter = "^1.0.0"
+ipdb = "^0.13.9"
+
+[tool.poetry.group.plot.dependencies]
+streamlit = "^1.15.2"
+streamlit-aggrid = "^0.3.3"
+dash = "^2.7.0"
+matplotlib = "^3.6.2"
+
+[build-system]
+requires = ["poetry-core>=1.4.0"]
+build-backend = "poetry.core.masonry.api"
