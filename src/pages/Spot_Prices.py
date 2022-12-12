@@ -78,7 +78,11 @@ def app(pre_run: bool = False, get_state: bool = False) -> pd.DataFrame:
     month_options = list(MONTH_TO_INT.keys())
 
     # Title of the main page
-    st.title("Visualization of intraday data")
+    st.title("Selection of spot price data")
+
+    st.info(
+        "💡 Choose spot price data in the sidebar and go back to 'Overview' when done."
+    )
 
     area = st.sidebar.selectbox("Select market area:", area_options, index=0)  # noqa
     spot_area = spot.query("PriceArea == @area")

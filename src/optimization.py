@@ -189,8 +189,7 @@ def get_power_array(
     power_dict = power.to_dict()
     if spot.shape[0] < 32 * 24:
         # if spot price data is less than a month, we only use power specified on monday
-        power_dict = {k: v for k, v in power_dict.items() if k in ["Mon", "Hour"]}
-        assert "Mon" in power_dict, "Monday must be included for daily optimization"
+        return np.array(list(power_dict["Mon"].values())).reshape(-1, 24)
 
     weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 

@@ -55,7 +55,6 @@ def main() -> None:
         power_df = power_page_app(pre_run=True)
     else:
         spot_price_df = spot_price_page_app(pre_run=False, get_state=True)
-        st.session_state.spot_price_df = spot_price_df
         power_df = power_page_app(pre_run=False, get_state=True)
         # st.session_state.power_df = power_df
 
@@ -68,8 +67,9 @@ def main() -> None:
         "Rebound", immediate_rebound_options, index=0
     )
 
-    tariff_options = ["Radius A", "Radius B", "Radius C", "N1 A", "N1 B", "N1 C"]
-    tariff = st.sidebar.selectbox("Tariff", tariff_options, index=0)
+    # tariff_options = ["Radius A", "Radius B", "Radius C", "N1 A", "N1 B", "N1 C"]
+    # tariff = st.sidebar.selectbox("Tariff", tariff_options, index=0)
+    tariff = ""
     moms_options = [0, 25]
     moms = st.sidebar.selectbox("VAT [%]", moms_options, index=0)
     elafgift_options = [0.0, 0.76]
@@ -95,6 +95,12 @@ def main() -> None:
     )
 
     st.title("Potential summary")
+    st.info(
+        "💡 Go to 'Power Consumption' to change which days and hours are eligable for flexibility."
+    )
+    st.info(
+        "💡 Go to 'Spot Price' to change which spot price data to use. Default is all of 2022."
+    )
     st.write("")
 
     base_cost = sum(opt_result.base_cost.reshape(-1))
@@ -102,7 +108,7 @@ def main() -> None:
     savings = (base_cost - shifted_cost) / base_cost * 100
 
     st.write(
-        f"Number of days considered in optimization: {int(spot_price_df.shape[0] / 24)} days"
+        f"Number of days considered in optimization: {int(spot_price_df.shape[0] / 24)} day(s)"
     )
 
     st.write(f"Base cost: {base_cost:,.0f} DKK")
