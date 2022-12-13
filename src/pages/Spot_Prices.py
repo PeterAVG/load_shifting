@@ -3,6 +3,7 @@ from typing import cast
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 MONTH_TO_INT = {
     "January": 1,
@@ -44,32 +45,23 @@ def read_spot_price_data() -> pd.DataFrame:
     return spot
 
 
-def get_pre_run_case() -> pd.DataFrame:
-    spot = read_spot_price_data()
+def initialize_spot_price_data() -> None:
+    print("Pre-run: getting default spot prices...")
 
+    spot = read_spot_price_data()
     year = 2022
     area = "DK1"
 
-    spot_area_time = spot.query(f"PriceArea == '{area}' & HourUTC.dt.year == {year}")
+    # STATE["original_spot_price_df"] = spot.copy()
+    # STATE = st.session_state.state
+    st.session_state.state["spot_price_df"] = spot.query(
+        f"PriceArea == '{area}' & HourUTC.dt.year == {year}"
+    ).copy()
 
-    return spot_area_time
 
+def app() -> None:
 
-def app(pre_run: bool = False, get_state: bool = False) -> pd.DataFrame:
-
-    if pre_run:
-        print("Pre-run: getting default spot prices...")
-        st.session_state.pre_run = True
-        st.session_state.spot_area_time = get_pre_run_case()
-        st.session_state.pre_run = False
-        return st.session_state.spot_area_time
-    elif pre_run is False and get_state:
-        assert "spot_area_time" in st.session_state, "Spot prices must be specified"
-        return st.session_state.spot_area_time
-    elif pre_run and get_state:
-        raise ValueError("Pre-run and get_state cannot be True at the same time")
-    else:
-        pass
+    STATE = st.session_state.state
 
     spot = read_spot_price_data()
     area_options = ["DK1", "DK2"]
@@ -81,7 +73,7 @@ def app(pre_run: bool = False, get_state: bool = False) -> pd.DataFrame:
     st.title("Selection of spot price data")
 
     st.info(
-        "💡 Choose spot price data in the sidebar and go back to 'Overview' when done."
+        "💡 Choose desired spot price data in the sidebar, click 'Save spot prices', and go back to 'Overview' when finished."
     )
 
     area = st.sidebar.selectbox("Select market area:", area_options, index=0)  # noqa
@@ -115,40 +107,85 @@ def app(pre_run: bool = False, get_state: bool = False) -> pd.DataFrame:
             max_value=date_options[-1],
         )
         spot_area_time = spot_area.query("Date == @date")
+    else:
+        raise ValueError(f"Unknown resolution: {resolution}")
 
-    placeholder_spot_price_plot = st.empty()
+    STATE["reset_spot_prices"] = st.sidebar.button("Reset spot prices to default")
+    STATE["save_spot_prices"] = st.sidebar.button("Save spot prices")
+
+    if STATE["reset_spot_prices"]:
+        STATE["spot_price_df"] = read_spot_price_data()
+        STATE["reset_spot_prices"] = False
+
+    if STATE["save_spot_prices"]:
+        print("Saving chosen spot prices...")
+        STATE["spot_price_df"] = spot_area_time
+        STATE["save_spot_prices"] = False
 
     def create_spot_price_plot() -> None:
-        fig = go.Figure()
+        fig = make_subplots(
+            rows=1,
+            cols=2,
+            subplot_titles=("Chosen spot price", "Saved spot price"),
+        )
         fig.add_trace(
             go.Scatter(
                 x=spot_area_time.HourUTC,
                 y=spot_area_time.SpotPriceDKK,
                 mode="lines",
-                name="DKK",
+                name="Chosen",
                 line_shape="vh",
-            )
+                opacity=0.5,
+            ),
+            row=1,
+            col=1,
+        )
+        saved = (
+            STATE["spot_price_df"].copy()
+            if "spot_price_df" in STATE
+            else spot_area_time
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=saved.HourUTC,
+                y=saved.SpotPriceDKK,
+                mode="lines",
+                name="Saved",
+                line_shape="vh",
+            ),
+            row=1,
+            col=2,
         )
         fig.update_layout(
-            title="Spot prices",
-            xaxis_title="Time",
-            yaxis_title="Price [DKK]",
-            legend_title="Legend Title",
+            width=800,
+            height=500,
             font=dict(
                 family="Courier New, monospace",
                 size=18,
                 color="#7f7f7f",
             ),
+            xaxis1=dict(
+                title="Time",
+            ),
+            xaxis2=dict(
+                title="Time",
+            ),
+            yaxis1=dict(
+                title="DKK/MWh",
+            ),
+            yaxis2=dict(
+                title="DKK/MWh",
+            ),
         )
 
-        placeholder_spot_price_plot.write(fig)
+        st.plotly_chart(fig, use_container_width=True, width=800, height=500)
 
     create_spot_price_plot()
 
-    st.session_state.spot_area_time = spot_area_time
 
-    return spot_area_time
-
-
-if "pre_run" in st.session_state and not st.session_state.pre_run:
-    app(pre_run=False)
+if "state" in st.session_state and "initialized" in st.session_state.state:
+    app()
+else:
+    st.write(
+        "It seems you have refreshed the page. Please go back to 'Overview' and start again."
+    )

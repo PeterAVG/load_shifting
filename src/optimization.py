@@ -183,16 +183,17 @@ def get_power_array(
     spot: pd.DataFrame,
     power: pd.DataFrame,
 ) -> np.ndarray:
-    # Only applies when running yearly optimization, i.e., when spot.shape[0] > 32 * 24
-    # first, compute power values to spot so weekday matches
-    power.index = power.Hour
-    power_dict = power.to_dict()
-    if spot.shape[0] < 32 * 24:
-        # if spot price data is less than a month, we only use power specified on monday
-        return np.array(list(power_dict["Mon"].values())).reshape(-1, 24)
 
     weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    power.index = power.Hour
 
+    power_dict = power.to_dict()
+    if spot.shape[0] <= 24:
+        # if spot price data is less-eq than a day, we only use power specified on Monday for all days
+        for wd in weekdays[1:]:
+            power_dict[wd] = power_dict["Mon"]
+
+    # compute power values to spot so weekday matches
     def get_power(x: pd.Series) -> float:
         wd = x.weekday()
         _wd = weekdays[wd]

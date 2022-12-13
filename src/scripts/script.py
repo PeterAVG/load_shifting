@@ -1,5 +1,6 @@
 #%%
 # Import necessary libraries
+import os
 from typing import cast
 
 import numpy as np
@@ -8,8 +9,11 @@ import pandas as pd
 DEFAULT_POWER = 1.0  # mW
 
 if True:
-    from src.load_shifting.optimization import prepare_and_run_optimization
-    from src.load_shifting.pages.Spot_Prices import read_spot_price_data
+    from src.optimization import prepare_and_run_optimization
+    from src.pages.Spot_Prices import read_spot_price_data
+
+two_up = os.path.abspath(os.path.join(__file__, "../../../"))
+os.chdir(two_up)
 
 
 def read_power_data(hourly_base_power: float) -> pd.DataFrame:
@@ -79,4 +83,4 @@ for scen in ["scenario1", "scenario2", "scenario3"]:
 df = pd.DataFrame(res)
 df[["base_cost", "shifted_cost"]] = df[["base_cost", "shifted_cost"]].round()
 
-df.to_csv("experiment.csv", index=False)
+df.to_csv("src/scripts/experiment.csv", index=False)
