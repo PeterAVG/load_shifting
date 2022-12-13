@@ -145,31 +145,33 @@ def app() -> None:
             cols=2,
             subplot_titles=("Chosen power", "Saved power"),
         )
-        cols = power.drop(columns=["Hour"]).columns.tolist()
+        cols = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for c in cols:
-            fig.add_trace(
-                go.Scatter(
-                    x=power["Hour"],
-                    y=power[c],
-                    mode="lines+markers",
-                    name=f"1-{c}",
-                    line_shape="vh",
-                    opacity=0.5,
-                ),
-                row=1,
-                col=1,
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=STATE["power_df"]["Hour"],
-                    y=STATE["power_df"][c],
-                    mode="lines+markers",
-                    name=f"2-{c}",
-                    line_shape="vh",
-                ),
-                row=1,
-                col=2,
-            )
+            if c in power.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=power["Hour"],
+                        y=power[c],
+                        mode="lines+markers",
+                        name=f"1-{c}",
+                        line_shape="vh",
+                        opacity=0.5,
+                    ),
+                    row=1,
+                    col=1,
+                )
+            if c in STATE["power_df"].columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=STATE["power_df"]["Hour"],
+                        y=STATE["power_df"][c],
+                        mode="lines+markers",
+                        name=f"2-{c}",
+                        line_shape="vh",
+                    ),
+                    row=1,
+                    col=2,
+                )
         fig.update_layout(
             width=800,
             height=500,
