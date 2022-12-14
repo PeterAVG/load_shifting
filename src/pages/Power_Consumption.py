@@ -187,10 +187,10 @@ def app() -> None:
                 title="Hour",
             ),
             yaxis1=dict(
-                title="Power [kW]",
+                title="Power [MW]",
             ),
             yaxis2=dict(
-                title="Power [kW]",
+                title="Power [MW]",
             ),
         )
 

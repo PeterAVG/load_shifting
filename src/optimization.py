@@ -218,12 +218,14 @@ def prepare_and_run_optimization(
     shiftable_hours: int,
     immediate_rebound_str: str,
     hourly_base_power: float,
+    percent_flexible: float,
 ) -> Any:
 
     immediate_rebound = True if immediate_rebound_str == "Immediate" else False
 
     assert shiftable_hours is not None, "Shiftable hours must be specified"
     assert spot.shape[0] % 24 == 0, "Spot prices must be 24 hours long"
+    assert percent_flexible >= 0 and percent_flexible <= 1
 
     spot_array = spot.SpotPriceDKK.values.reshape(-1, 24)
     power_array = get_power_array(spot, power)
@@ -237,7 +239,11 @@ def prepare_and_run_optimization(
     print(f"Spot array shape: {spot_array.shape}")
 
     opt_result = run_optimization(
-        spot_array, power_array, shiftable_hours, immediate_rebound, hourly_base_power
+        spot_array,
+        power_array * percent_flexible,
+        shiftable_hours,
+        immediate_rebound,
+        hourly_base_power,
     )
 
     @timing()
@@ -288,9 +294,10 @@ def prepare_and_run_optimization(
             row=2,
             col=1,
         )
+        power_array[np.isnan(power_array)] = hourly_base_power
         fig.add_trace(
             go.Scatter(
-                x=spot.HourUTC,
+                x=spot.HourUTC.tolist(),
                 y=power_array.reshape(-1),
                 mode="lines",
                 name="Without load shifting",
@@ -300,10 +307,13 @@ def prepare_and_run_optimization(
             row=3,
             col=1,
         )
+        flexible_power_response = opt_result.mem_power.reshape(
+            -1
+        ) + hourly_base_power * (1 - percent_flexible)
         fig.add_trace(
             go.Scatter(
-                x=spot.HourUTC,
-                y=opt_result.mem_power.reshape(-1),
+                x=spot.HourUTC.tolist(),
+                y=flexible_power_response,
                 mode="lines",
                 name="With load shifting",
                 line_shape="vh",
@@ -356,12 +366,10 @@ def prepare_and_run_optimization(
                 title="DKK",
             ),
             yaxis2=dict(
-                range=[0, np.cumsum(opt_result.base_cost.reshape(-1))[i_max] + 1],
+                range=[0, np.cumsum(opt_result.base_cost.reshape(-1))[i_max] * 1.1],
                 title="DKK",
             ),
-            yaxis3=dict(
-                title="kW",
-            ),
+            yaxis3=dict(title="MW", range=[0, flexible_power_response.max() * 1.1]),
             legend_tracegroupgap=150,
         )
 

@@ -33,8 +33,8 @@ def correct_spot_prices(
 def update_power_data() -> None:
     assert "power_df" in STATE
     cols = STATE["power_df"].columns.drop("Hour")
-    to_replace = STATE["power_df"]
-    replace_with = STATE["power_df"]
+    to_replace = STATE["prev_hourly_base_power"]
+    replace_with = STATE["hourly_base_power"]
     STATE["power_df"].replace({c: to_replace for c in cols}, replace_with, inplace=True)
 
 
@@ -46,11 +46,12 @@ def main() -> None:
     hourly_base_power = st.sidebar.number_input(
         label="Hourly base power [mW]",
         min_value=1e-06,
-        value=STATE.get("hourly_base_power", DEFAULT_POWER),
+        value=DEFAULT_POWER,
         step=0.1,
         format="%0.3f",
         help=help_text,
     )
+
     STATE["prev_hourly_base_power"] = STATE.get("hourly_base_power", DEFAULT_POWER)
     STATE["hourly_base_power"] = hourly_base_power
 
@@ -70,6 +71,17 @@ def main() -> None:
         assert "power_df" in STATE
         # spot_price_page_app(get_state=True)
         # power_page_app(get_state=True)
+
+    help_text = "Percentage of how much of your power consumption that is flexible."
+    percent_flexible = st.sidebar.number_input(
+        label="Flexibility potential [%]",
+        min_value=0,
+        max_value=100,
+        value=100,
+        step=10,
+        # format="%0.3f",
+        help=help_text,
+    )
 
     shiftable_hours_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     help_text = "Number of hours to shift load. E.g. 2 means that the load can be shifted 2 hours."
@@ -108,6 +120,7 @@ def main() -> None:
         cast(int, shiftable_hours),
         cast(str, immediate_rebound),
         STATE["hourly_base_power"],
+        percent_flexible / 100,
     )
 
     st.title("Potential summary")
