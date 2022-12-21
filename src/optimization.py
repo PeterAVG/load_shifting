@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -15,55 +15,6 @@ class OptimizationResult:
     base_cost: np.ndarray
     mem_cost: np.ndarray
     mem_power: np.ndarray
-
-
-def _fill_table(
-    spot_price: np.ndarray,
-    base_power: np.ndarray,
-    mask: np.ndarray,
-    immediate_rebound: bool,
-) -> Tuple[Dict[Any, Any], Dict[Any, Any]]:
-
-    mem_savings = {}
-    mem_consumption = {}
-
-    for d in range(spot_price.shape[0]):
-        daily_price = spot_price[d, :]
-        for i in range(24):
-            for j in range(24):
-                # only look at lower (or upper) triangle of matrix
-                # only look at eligible hours for load shifting
-                if j >= i or mask[d, i] or mask[d, j]:
-                    continue
-
-                if abs(i - j) > 1 and immediate_rebound:
-                    continue
-
-                up_down_cost = (
-                    -daily_price[i] * base_power[d, i]
-                    + daily_price[j] * base_power[d, i]
-                )
-                down_up_cost = (
-                    daily_price[i] * base_power[d, j]
-                    - daily_price[j] * base_power[d, j]
-                )
-
-                if up_down_cost < down_up_cost and up_down_cost < 0:
-                    mem_savings[(d, i, j)] = (
-                        0.0,
-                        daily_price[j] * base_power[d, i],
-                        up_down_cost,
-                    )
-                    mem_consumption[(d, i, j)] = (0.0, base_power[d, i])
-                elif down_up_cost < up_down_cost and down_up_cost < 0:
-                    mem_savings[(d, i, j)] = (
-                        daily_price[i] * base_power[d, j],
-                        0.0,
-                        down_up_cost,
-                    )
-                    mem_consumption[(d, i, j)] = (base_power[d, j], 0.0)
-
-    return mem_savings, mem_consumption
 
 
 @timing()
@@ -119,61 +70,91 @@ def run_optimization(
     mem_power = base_power.copy()
     mem_cost = base_cost.copy()
 
-    mem_savings, mem_consumption = _fill_table(
-        spot_price, base_power, mask, immediate_rebound
-    )
+    mem_savings = {}
+    mem_consumption = {}
 
     for d in range(spot_price.shape[0]):
-        best_actions = []
-        best_values = []
+
+        daily_price = spot_price[d, :]
+
+        actions = []
+        values = []
+
         for i in range(24):
             for j in range(24):
+                # only look at lower (or upper) triangle of matrix
+                # only look at eligible hours for load shifting
                 if j >= i or mask[d, i] or mask[d, j]:
                     continue
+
                 if abs(i - j) > 1 and immediate_rebound:
                     continue
-                if (d, i, j) in mem_savings:
-                    _, _, val = mem_savings[(d, i, j)]
-                    assert val < 0
-                    best_actions.append((i, j))
-                    best_values.append(val)
+
+                # up-regulate in i and down-regulate in j using power in i
+                up_down_cost = (
+                    -daily_price[i] * base_power[d, i]
+                    + daily_price[j] * base_power[d, i]
+                )
+                # down-regulate in i and up-regulate in j using power in j
+                down_up_cost = (
+                    daily_price[i] * base_power[d, j]
+                    - daily_price[j] * base_power[d, j]
+                )
+
+                # hence, we either move i's power to j or j's power to i,
+                # whichever is cheaper (and cheaper than doing nothing, i.e. 0):
+
+                if up_down_cost < down_up_cost and up_down_cost < 0:
+                    mem_savings[(d, i, j)] = (
+                        0.0,
+                        daily_price[j] * base_power[d, i],
+                    )
+                    mem_consumption[(d, i, j)] = (0.0, base_power[d, i])
+                    val = up_down_cost
+                elif down_up_cost < up_down_cost and down_up_cost < 0:
+                    mem_savings[(d, i, j)] = (
+                        daily_price[i] * base_power[d, j],
+                        0.0,
+                    )
+                    mem_consumption[(d, i, j)] = (base_power[d, j], 0.0)
+                    val = down_up_cost
+
+                if (d, i, j) in mem_savings and (d, i, j) in mem_consumption:
+                    # append action and its value
+                    actions.append((i, j))
+                    values.append(val)  # type:ignore
 
         # sort best actions by lowest value and discard overlapping keys
-        unique_best_actions: List[Tuple[int, int]] = []
-        ix = np.argsort(best_values)
+        unique_sorted_actions: List[Tuple[int, int]] = []
+        ix = np.argsort(values)
         for i in ix:
-            i, j = best_actions[i]
+            i, j = actions[i]
             overlapping_actions = [
-                True if (i in a or j in a) else False for a in unique_best_actions
+                True if (i in a or j in a) else False for a in unique_sorted_actions
             ]
             if sum(overlapping_actions) == 0:
-                unique_best_actions.append((i, j))
+                unique_sorted_actions.append((i, j))
 
-        if len(unique_best_actions) == 0:
+        if len(unique_sorted_actions) == 0:
             print(
                 "Warning: No actions to take!",
                 end="\r",
             )
             continue
 
-        if len(unique_best_actions) < shiftable_hours:
+        if len(unique_sorted_actions) < shiftable_hours:
             print(
-                f"Warning: can't utilize all available hours to shift load {len(unique_best_actions)}/{d}",
+                f"Warning: can't utilize all available hours to shift load {len(unique_sorted_actions)}/{d}",
                 end="\r",
             )
 
-        for i, j in unique_best_actions[:shiftable_hours]:
-            v1, v2, _ = mem_savings[(d, i, j)]
+        for i, j in unique_sorted_actions[:shiftable_hours]:
+            v1, v2 = mem_savings[(d, i, j)]
             p1, p2 = mem_consumption[(d, i, j)]
             mem_cost[d, i] = v1 if v1 == 0 else mem_cost[d, i] + v1
             mem_cost[d, j] = v2 if v2 == 0 else mem_cost[d, j] + v2
             mem_power[d, i] = p1 if p1 == 0 else mem_power[d, i] + p1
             mem_power[d, j] = p2 if p2 == 0 else mem_power[d, j] + p2
-
-    ix = mem_power == 0
-    assert np.all(mem_cost[ix] < base_cost[ix]), "mem_cost[ix] < base_cost[ix]"
-    assert np.all(mem_cost[ix] == 0.0)
-    assert np.all(ix.sum(axis=1) <= shiftable_hours)
 
     return OptimizationResult(base_cost, mem_cost, mem_power)
 
