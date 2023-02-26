@@ -8,9 +8,8 @@ import pandas as pd
 
 DEFAULT_POWER = 1.0  # mW
 
-if True:
-    from src.optimization import prepare_and_run_optimization
-    from src.pages.Spot_Prices import read_spot_price_data
+from src.optimization import prepare_and_run_optimization
+from src.pages.Spot_Prices import read_spot_price_data
 
 two_up = os.path.abspath(os.path.join(__file__, "../../../"))
 os.chdir(two_up)
@@ -33,13 +32,13 @@ spot_price_df = read_spot_price_data()
 
 res = []
 for scen in ["scenario1", "scenario2", "scenario3"]:
-    if scen == "scenario3":
-        _power_df = power_df.copy()
+    if scen == "scenario1":
+        _power_df = power_df.query("Hour >= 7 & Hour <= 22").copy()
     elif scen == "scenario2":
         _power_df = power_df.query("Hour >= 8 & Hour <= 16").copy()
         _power_df = _power_df[["Hour", "Mon", "Tue", "Wed", "Thu", "Fri"]]
-    elif scen == "scenario1":
-        _power_df = power_df.query("Hour >= 7 & Hour <= 22").copy()
+    elif scen == "scenario3":
+        _power_df = power_df.copy()
     else:
         raise ValueError("Invalid scenario")
     for area in ["DK1", "DK2"]:
@@ -75,7 +74,7 @@ for scen in ["scenario1", "scenario2", "scenario3"]:
                         "area": area,
                         "year": year,
                     }
-                    _res.update(param_set)
+                    _res |= param_set
                     res.append(_res)
 
 

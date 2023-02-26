@@ -9,10 +9,9 @@ st.set_page_config(layout="wide")
 
 DEFAULT_POWER = 1.0  # mW
 
-if True:
-    from src.optimization import prepare_and_run_optimization
-    from src.pages.Power_Consumption import initialize_power_data
-    from src.pages.Spot_Prices import initialize_spot_price_data
+from src.optimization import prepare_and_run_optimization
+from src.pages.Power_Consumption import initialize_power_data
+from src.pages.Spot_Prices import initialize_spot_price_data
 
 if "state" not in st.session_state:
     print("\n\nInitializing session state...")
