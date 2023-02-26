@@ -129,13 +129,11 @@ def run_optimization(
         ix = np.argsort(values)
         for i in ix:
             i, j = actions[i]
-            overlapping_actions = [
-                True if (i in a or j in a) else False for a in unique_sorted_actions
-            ]
+            overlapping_actions = [i in a or j in a for a in unique_sorted_actions]
             if sum(overlapping_actions) == 0:
                 unique_sorted_actions.append((i, j))
 
-        if len(unique_sorted_actions) == 0:
+        if not unique_sorted_actions:
             print(
                 "Warning: No actions to take!",
                 end="\r",
@@ -202,7 +200,7 @@ def prepare_and_run_optimization(
     percent_flexible: float,
 ) -> Any:
 
-    immediate_rebound = True if immediate_rebound_str == "Immediate" else False
+    immediate_rebound = immediate_rebound_str == "Immediate"
 
     assert shiftable_hours is not None, "Shiftable hours must be specified"
     assert spot.shape[0] % 24 == 0, "Spot prices must be 24 hours long"

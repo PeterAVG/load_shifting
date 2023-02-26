@@ -117,11 +117,11 @@ def app() -> None:
         else power.columns.tolist()  # type: ignore
     )
 
-    if not pd.DataFrame(selected_rows).empty:
-        power = pd.DataFrame(selected_rows)[selected_columns]
-    else:
-        power = power[selected_columns]  # type: ignore
-
+    power = (
+        power[selected_columns]
+        if pd.DataFrame(selected_rows).empty
+        else pd.DataFrame(selected_rows)[selected_columns]
+    )
     # print(power)
 
     STATE["intermediate_power_df"] = power.copy()
