@@ -59,10 +59,10 @@ def app() -> None:
     st.title("Specify power consumption")
     st.write("")
     st.markdown(
-        """Change the consumption for each hour to create a more accurate flexibility estimation"""
-    )
-    st.markdown(
-        """OBS: if a daily resolution is chosen for spot prices, Monday's consumption is used."""
+        """
+           Change the consumption for each hour and day to create a more accurate flexibility estimation
+           Monday's prices are used as default if chosen spot prices are for one day only.
+        """
     )
     st.write("")
     st.write("")
@@ -72,7 +72,7 @@ def app() -> None:
         "💡 Select eligible days by pressing 'columns' and selecting days accordingly."
     )
     st.info("💡 Double click on cell and change consumption by pressing 'enter'.")
-    st.info("💡 Press 'Save power consumption' when finished.")
+    st.info("💡 Press 'Save power consumption' when finished and go back to 'Overview'.")
     st.caption("")
 
     power = get_power_data()
@@ -196,7 +196,7 @@ def app() -> None:
 
         st.plotly_chart(fig, use_container_width=True, width=800, height=500)
 
-    st.info("OBS: only the values inputed in the previous selection are saved")
+    # st.info("OBS: only the values inputed in the previous selection are saved")
 
     create_power_plot()
 

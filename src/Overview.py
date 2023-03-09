@@ -88,10 +88,10 @@ def main() -> None:
     shiftable_hours = st.sidebar.selectbox(
         "Hours to shift", shiftable_hours_options, index=0, help=help_text
     )
-    help_text = "Whether rebound occurs immediately before or after a load shift - or at any given time. 'Delayed' yields a better result."
+    help_text = "Whether the load is shifted immediately - or delayed to any given time. 'Delayed' yields a better result (but perhaps more unrealistic)."
     immediate_rebound_options = ["Delayed", "Immediate"]
     immediate_rebound = st.sidebar.selectbox(
-        "Rebound", immediate_rebound_options, index=0, help=help_text
+        "Delay of load shifted", immediate_rebound_options, index=0, help=help_text
     )
 
     # tariff_options = ["Radius A", "Radius B", "Radius C", "N1 A", "N1 B", "N1 C"]
@@ -136,21 +136,21 @@ def main() -> None:
     shifted_cost = sum(opt_result.mem_cost.reshape(-1))
     savings = (base_cost - shifted_cost) / base_cost * 100
 
-    st.write(
-        f"Number of days considered in optimization: {int(STATE['spot_price_df'].shape[0] / 24)} day(s)"
-    )
+    days = int(STATE["spot_price_df"].shape[0] / 24)
+    st.write(f"Number of days considered in load shifting optimization: {days} day(s)")
 
-    st.write(f"Base cost: {base_cost:,.0f} DKK")
-    st.write(f"Cost with load shifting: {shifted_cost:,.0f} DKK")
+    st.write(f"Operational baseline cost: {base_cost:,.0f} DKK")
+    st.write(f"Operational cost with load shifting: {shifted_cost:,.0f} DKK")
     st.write(f"Savings: {savings:.2f} %")
 
     if np.isclose(savings, 0.0):
         st.write("OBS: It is not possible to shift load with chosen settings")
 
-    st.plotly_chart(fig, use_container_width=True, height=700)
     st.info(
-        "💡 The plots are zoomed in to show 24 hours only. Press 'Autoscale' to zoom out (upper right corner)."
+        f"💡 The plots are zoomed in to show the first 24 hours only. Press 'Autoscale' to zoom out (upper right corner) and see all {days} days."
     )
+
+    st.plotly_chart(fig, use_container_width=True, height=700)
 
 
 main()

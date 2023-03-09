@@ -24,6 +24,7 @@ def run_optimization(
     shiftable_hours: int,
     immediate_rebound: bool,
     hourly_base_power: float,
+    percent_flexible: float,
 ) -> OptimizationResult:
     """
     args:
@@ -32,11 +33,12 @@ def run_optimization(
         - shiftable_hours: hours allowed to shift
         - immediate_rebound: whether rebound happens immediately or not (either consecutive up/down or down/up)
         - hourly_base_power: default base power consumption
+        - percent_flexible: percentage of power consumption that is allowed to be shifted
 
     We assume spot price optimization (load shifting) has the following contraints:
         - There is an immediate load shift (no ramping up/down)
-        - Immediate rebound to original consumption after down/up-regulation
-        - An action is either up-regulation or down-regulation with immediate rebound
+        - Immediate or delayed rebound to original consumption after down/up-regulation
+        - An action is either up-regulation or down-regulation with immediate or delayed rebound
         - The full power consumption is shifted
         - In total, it is possible to shift 2 * 'shiftable_hours' of power consumption
             -- (Multiply by 2 due to rebound)
@@ -46,7 +48,7 @@ def run_optimization(
     This allows us to solve the problem using a greedy approach:
         - Sort the abslute value of differentiated spot prices in descending order
         - Choose the hour with the biggest price differential and shift the power consumption
-        - Rebound in the following or preceeding hour (depending if price differential is positive or negative)
+        - Rebound in the following or preceeding hour(s) (depending if price differential is positive or negative)
 
     return:
         - Costs w/wo load shifting for all days
@@ -67,8 +69,12 @@ def run_optimization(
     base_power[mask] = hourly_base_power
 
     base_cost = spot_price * base_power
+
     mem_power = base_power.copy()
     mem_cost = base_cost.copy()
+
+    # adjust power to what is flexible
+    _base_power = base_power * percent_flexible
 
     mem_savings = {}
     mem_consumption = {}
@@ -92,13 +98,13 @@ def run_optimization(
 
                 # up-regulate in i and down-regulate in j using power in i
                 up_down_cost = (
-                    -daily_price[i] * base_power[d, i]
-                    + daily_price[j] * base_power[d, i]
+                    -daily_price[i] * _base_power[d, i]
+                    + daily_price[j] * _base_power[d, i]
                 )
                 # down-regulate in i and up-regulate in j using power in j
                 down_up_cost = (
-                    daily_price[i] * base_power[d, j]
-                    - daily_price[j] * base_power[d, j]
+                    daily_price[i] * _base_power[d, j]
+                    - daily_price[j] * _base_power[d, j]
                 )
 
                 # hence, we either move i's power to j or j's power to i,
@@ -106,17 +112,19 @@ def run_optimization(
 
                 if up_down_cost < down_up_cost and up_down_cost < 0:
                     mem_savings[(d, i, j)] = (
-                        0.0,
-                        daily_price[j] * base_power[d, i],
+                        # 0.0,
+                        -daily_price[i] * _base_power[d, i],
+                        daily_price[j] * _base_power[d, i],
                     )
-                    mem_consumption[(d, i, j)] = (0.0, base_power[d, i])
+                    mem_consumption[(d, i, j)] = (-_base_power[d, i], _base_power[d, i])
                     val = up_down_cost
                 elif down_up_cost < up_down_cost and down_up_cost < 0:
                     mem_savings[(d, i, j)] = (
-                        daily_price[i] * base_power[d, j],
-                        0.0,
+                        daily_price[i] * _base_power[d, j],
+                        -daily_price[j] * _base_power[d, j],
+                        # 0.0
                     )
-                    mem_consumption[(d, i, j)] = (base_power[d, j], 0.0)
+                    mem_consumption[(d, i, j)] = (_base_power[d, j], -_base_power[d, j])
                     val = down_up_cost
 
                 if (d, i, j) in mem_savings and (d, i, j) in mem_consumption:
@@ -151,10 +159,10 @@ def run_optimization(
         for i, j in unique_sorted_actions[:shiftable_hours]:
             v1, v2 = mem_savings[(d, i, j)]
             p1, p2 = mem_consumption[(d, i, j)]
-            mem_cost[d, i] = v1 if v1 == 0 else mem_cost[d, i] + v1
-            mem_cost[d, j] = v2 if v2 == 0 else mem_cost[d, j] + v2
-            mem_power[d, i] = p1 if p1 == 0 else mem_power[d, i] + p1
-            mem_power[d, j] = p2 if p2 == 0 else mem_power[d, j] + p2
+            mem_cost[d, i] += v1
+            mem_cost[d, j] += v2
+            mem_power[d, i] += p1
+            mem_power[d, j] += p2
 
     return OptimizationResult(base_cost, mem_cost, mem_power)
 
@@ -178,7 +186,7 @@ def get_power_array(
     def get_power(x: pd.Series) -> float:
         wd = x.weekday()
         _wd = weekdays[wd]
-        h = x.hour
+        h = x.hour + 1
         # Set power to 'nan' if user didn't specify power consumption for that weekday/hour.
         # This power will be identified in the optimization and will not be shifted, but instead
         # set to BASE_LOAD.
@@ -221,11 +229,19 @@ def prepare_and_run_optimization(
 
     opt_result = run_optimization(
         spot_array,
-        power_array * percent_flexible,
+        power_array,
         shiftable_hours,
         immediate_rebound,
         hourly_base_power,
+        percent_flexible,
     )
+    flexible_power_response = opt_result.mem_power.reshape(-1)
+    power_array[np.isnan(power_array)] = hourly_base_power
+    power_array = power_array.reshape(-1)
+
+    assert np.isclose(
+        sum(flexible_power_response), sum(power_array), 1e-3
+    ), "There is a bug in the optimization. Please report it."
 
     @timing()
     def create_result_plot() -> Any:
@@ -245,7 +261,7 @@ def prepare_and_run_optimization(
                 y=spot_array.reshape(-1),
                 mode="lines",
                 name="Spot price",
-                line_shape="vh",
+                line_shape="hv",
                 legendgroup="1",
             ),
             row=1,
@@ -257,7 +273,7 @@ def prepare_and_run_optimization(
                 y=np.cumsum(opt_result.mem_cost.reshape(-1)),
                 mode="lines",
                 name="With load shifting",
-                line_shape="vh",
+                line_shape="hv",
                 legendgroup="2",
             ),
             row=2,
@@ -269,35 +285,31 @@ def prepare_and_run_optimization(
                 y=np.cumsum(opt_result.base_cost.reshape(-1)),
                 mode="lines",
                 name="Without load shifting",
-                line_shape="vh",
+                line_shape="hv",
                 legendgroup="2",
             ),
             row=2,
             col=1,
         )
-        power_array[np.isnan(power_array)] = hourly_base_power
         fig.add_trace(
             go.Scatter(
-                x=spot.HourUTC.tolist(),
-                y=power_array.reshape(-1),
+                x=spot.HourUTC,
+                y=power_array,
                 mode="lines",
                 name="Without load shifting",
-                line_shape="vh",
+                line_shape="hv",
                 legendgroup="3",
             ),
             row=3,
             col=1,
         )
-        flexible_power_response = opt_result.mem_power.reshape(
-            -1
-        ) + hourly_base_power * (1 - percent_flexible)
         fig.add_trace(
             go.Scatter(
-                x=spot.HourUTC.tolist(),
+                x=spot.HourUTC,
                 y=flexible_power_response,
                 mode="lines",
                 name="With load shifting",
-                line_shape="vh",
+                line_shape="hv",
                 legendgroup="3",
             ),
             row=3,

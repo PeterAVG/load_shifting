@@ -66,7 +66,7 @@ def app() -> None:
     spot = read_spot_price_data()
     area_options = ["DK1", "DK2"]
     resolution_options = ["yearly", "daily"]
-    year_options = [2021, 2022]
+    year_options = [2021, 2022, 2023]
     month_options = list(MONTH_TO_INT.keys())
 
     # Title of the main page
