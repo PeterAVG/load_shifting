@@ -22,12 +22,21 @@ STATE = st.session_state.state
 
 
 def correct_spot_prices(
-    spot_price_df: pd.DataFrame, tariff: str, moms: int, exposure: int, elafgift: float
+    spot_price_df: pd.DataFrame,
+    tariff: str,
+    moms: int,
+    exposure: int,
+    elafgift: float,
 ) -> None:
-    # TODO: implement tariffs directly in the spot price data
-    spot_price_df.SpotPriceDKK += elafgift
-    spot_price_df.SpotPriceDKK *= exposure / 100
-    spot_price_df.SpotPriceDKK *= 1 + moms / 100
+
+    # TODO: icorrect for spot prices here
+    spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy + elafgift
+    spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy * exposure / 100
+    spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy * (1 + moms / 100)
+    if tariff:
+        spot_price_df.SpotPriceDKK = (
+            spot_price_df.SpotPriceDKKCopy + spot_price_df[tariff]
+        )
 
 
 def update_power_data() -> None:
@@ -82,6 +91,15 @@ def main() -> None:
         # format="%0.3f",
         help=help_text,
     )
+    help_text = "Specify how much of the original load is shifted. If less than 100%, energy is saved."
+    shifted_load_percentage = st.sidebar.number_input(
+        label="Shifted load [%]",
+        min_value=0,
+        max_value=100,
+        value=100,
+        step=10,
+        help=help_text,
+    )
 
     shiftable_hours_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     help_text = "Number of hours to shift load. E.g. 2 means that the load can be shifted 2 hours."
@@ -93,10 +111,14 @@ def main() -> None:
     immediate_rebound = st.sidebar.selectbox(
         "Delay of load shifted", immediate_rebound_options, index=0, help=help_text
     )
-
-    # tariff_options = ["Radius A", "Radius B", "Radius C", "N1 A", "N1 B", "N1 C"]
-    # tariff = st.sidebar.selectbox("Tariff", tariff_options, index=0)
-    tariff = ""
+    price_area = STATE["spot_price_df"].PriceArea.iloc[0]
+    tariff_options = (
+        [e for e in STATE["spot_price_df"].columns if "N1 " in e]
+        if price_area == "DK1"
+        else [e for e in STATE["spot_price_df"].columns if "Radius " in e]
+    )
+    tariff_options.insert(0, "")
+    tariff = st.sidebar.selectbox("Tariff", tariff_options, index=0)
     moms_options = [0, 25]
     moms = st.sidebar.selectbox("VAT [%]", moms_options, index=0)
     elafgift_options = [0.0, 0.76]
@@ -121,6 +143,7 @@ def main() -> None:
         cast(str, immediate_rebound),
         STATE["hourly_base_power"],
         percent_flexible / 100,
+        shifted_load_percentage / 100,
     )
 
     st.title("Potential summary")

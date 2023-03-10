@@ -1,5 +1,5 @@
 fail_fast: false
-exclude: .idea|.git|src/scripts|src/data/elspotprices.csv
+exclude: .idea|.git|src/scripts|src/data/spot_with_tariffs.csv|src/etl/prices.py
 default_stages: [push, commit]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

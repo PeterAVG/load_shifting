@@ -23,22 +23,9 @@ MONTH_TO_INT = {
 
 @st.cache
 def read_spot_price_data() -> pd.DataFrame:
-    file = "src/data/elspotprices.csv"
-    spot = pd.read_csv(
-        file, sep=";", decimal=",", parse_dates=["HourUTC", "HourDK"]
-    ).sort_values(by="HourUTC")
-    spot["Date"] = spot.HourUTC.dt.date
-    dates_to_substract = (  # noqa
-        spot.query("PriceArea == 'DK1'")
-        .groupby("Date")
-        .SpotPriceDKK.count()
-        .to_frame()
-        .query("SpotPriceDKK <= 23")
-        .index.values.tolist()
-    )
-    spot = spot.query("Date != @dates_to_substract")
-    spot = spot[["HourUTC", "PriceArea", "SpotPriceDKK", "Date"]]
-    spot["SpotPriceDKK"] = spot["SpotPriceDKK"].values  # type:ignore
+    file = "src/data/spot_with_tariffs.csv"
+    spot = pd.read_csv(file, parse_dates=["HourUTC", "Date"]).sort_values(by="HourUTC")
+    spot["SpotPriceDKKCopy"] = spot.SpotPriceDKK.values  # type:ignore
 
     print(spot.shape)
 

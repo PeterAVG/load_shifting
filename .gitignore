@@ -133,3 +133,5 @@ dmypy.json
 # scripts/
 .tmp/
 venv_julia
+src/data/DatahubPricelist.csv
+src/data/elspotprices.csv

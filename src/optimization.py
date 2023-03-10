@@ -25,6 +25,7 @@ def run_optimization(
     immediate_rebound: bool,
     hourly_base_power: float,
     percent_flexible: float,
+    shifted_load_percentage: float,
 ) -> OptimizationResult:
     """
     args:
@@ -34,6 +35,7 @@ def run_optimization(
         - immediate_rebound: whether rebound happens immediately or not (either consecutive up/down or down/up)
         - hourly_base_power: default base power consumption
         - percent_flexible: percentage of power consumption that is allowed to be shifted
+        - shifted_load_percentage (0-1): percentage of foregone load that is shifted
 
     We assume spot price optimization (load shifting) has the following contraints:
         - There is an immediate load shift (no ramping up/down)
@@ -99,11 +101,11 @@ def run_optimization(
                 # up-regulate in i and down-regulate in j using power in i
                 up_down_cost = (
                     -daily_price[i] * _base_power[d, i]
-                    + daily_price[j] * _base_power[d, i]
+                    + daily_price[j] * _base_power[d, i] * shifted_load_percentage
                 )
                 # down-regulate in i and up-regulate in j using power in j
                 down_up_cost = (
-                    daily_price[i] * _base_power[d, j]
+                    daily_price[i] * _base_power[d, j] * shifted_load_percentage
                     - daily_price[j] * _base_power[d, j]
                 )
 
@@ -114,17 +116,23 @@ def run_optimization(
                     mem_savings[(d, i, j)] = (
                         # 0.0,
                         -daily_price[i] * _base_power[d, i],
-                        daily_price[j] * _base_power[d, i],
+                        daily_price[j] * _base_power[d, i] * shifted_load_percentage,
                     )
-                    mem_consumption[(d, i, j)] = (-_base_power[d, i], _base_power[d, i])
+                    mem_consumption[(d, i, j)] = (
+                        -_base_power[d, i],
+                        _base_power[d, i] * shifted_load_percentage,
+                    )
                     val = up_down_cost
                 elif down_up_cost < up_down_cost and down_up_cost < 0:
                     mem_savings[(d, i, j)] = (
-                        daily_price[i] * _base_power[d, j],
+                        daily_price[i] * _base_power[d, j] * shifted_load_percentage,
                         -daily_price[j] * _base_power[d, j],
                         # 0.0
                     )
-                    mem_consumption[(d, i, j)] = (_base_power[d, j], -_base_power[d, j])
+                    mem_consumption[(d, i, j)] = (
+                        _base_power[d, j] * shifted_load_percentage,
+                        -_base_power[d, j],
+                    )
                     val = down_up_cost
 
                 if (d, i, j) in mem_savings and (d, i, j) in mem_consumption:
@@ -208,6 +216,7 @@ def prepare_and_run_optimization(
     immediate_rebound_str: str,
     hourly_base_power: float,
     percent_flexible: float,
+    shifted_load_percentage: float,
 ) -> Any:
 
     immediate_rebound = True if immediate_rebound_str == "Immediate" else False
@@ -234,14 +243,22 @@ def prepare_and_run_optimization(
         immediate_rebound,
         hourly_base_power,
         percent_flexible,
+        shifted_load_percentage,
     )
     flexible_power_response = opt_result.mem_power.reshape(-1)
     power_array[np.isnan(power_array)] = hourly_base_power
     power_array = power_array.reshape(-1)
 
-    assert np.isclose(
-        sum(flexible_power_response), sum(power_array), 1e-3
-    ), "There is a bug in the optimization. Please report it."
+    if shifted_load_percentage == 1:
+        assert np.isclose(
+            sum(flexible_power_response),
+            sum(power_array),
+            1e-3,
+        ), "There is a bug in the optimization. Please report it."
+    else:
+        assert sum(flexible_power_response) < sum(
+            power_array
+        ), "There is a bug in the optimization. Please report it."
 
     @timing()
     def create_result_plot() -> Any:
