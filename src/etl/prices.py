@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import pandas as pd
 
@@ -31,11 +32,11 @@ df = pd.read_csv(file, sep=";", decimal=",", parse_dates=["ValidFrom", "ValidTo"
 RADIUS = {
     "Radius Elnet A/S": [
         "DT_C_01",
-        "DT_C_02",
-        "DT_C_03",
+        # "DT_C_02",
+        # "DT_C_03",
         "DT_B_01",
         "DT_B_02",
-        "DT_A_01",
+        # "DT_A_01",
         "DT_A_02",
         "DT_A_03",
     ],
@@ -76,7 +77,7 @@ spot.loc[r.index, cols] = r.values
 
 # From https://n1.dk/priser-og-vilkaar
 # tuple of (type, hour from, hour to, month from, month to)
-# TODO: not correct until weekdays are in taken into account
+# TODO: not correct until weekdays are taken into account
 N1 = {
     ("C-time", 0, 23, 3, 8): 43.22 / 100 * 1000,  # lavlast
     ("C-time", 0, 23, 0, 2): 43.22 / 100 * 1000,  # lavlast
