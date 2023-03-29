@@ -28,8 +28,6 @@ def correct_spot_prices(
     exposure: int,
     elafgift: float,
 ) -> None:
-
-    # TODO: icorrect for spot prices here
     spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy + elafgift
     spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy * exposure / 100
     spot_price_df.SpotPriceDKK = spot_price_df.SpotPriceDKKCopy * (1 + moms / 100)

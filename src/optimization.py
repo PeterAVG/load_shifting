@@ -92,7 +92,7 @@ def run_optimization(
             for j in range(24):
                 # only look at lower (or upper) triangle of matrix
                 # only look at eligible hours for load shifting
-                if j >= i or mask[d, i] or mask[d, j]:
+                if j < i or mask[d, i] or mask[d, j]:
                     continue
 
                 if abs(i - j) > 1 and immediate_rebound:
@@ -108,6 +108,8 @@ def run_optimization(
                     daily_price[i] * _base_power[d, j] * shifted_load_percentage
                     - daily_price[j] * _base_power[d, j]
                 )
+                # TODO: use a setting instead. It ensures rebound happens after up-regulation
+                down_up_cost = 0.0
 
                 # hence, we either move i's power to j or j's power to i,
                 # whichever is cheaper (and cheaper than doing nothing, i.e. 0):
@@ -275,9 +277,21 @@ def prepare_and_run_optimization(
         fig.add_trace(
             go.Scatter(
                 x=spot.HourUTC,
-                y=spot_array.reshape(-1),
+                y=spot.SpotPriceDKKCopy.values,
                 mode="lines",
                 name="Spot price",
+                line_shape="hv",
+                legendgroup="1",
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=spot.HourUTC,
+                y=(spot.SpotPriceDKK.values - spot.SpotPriceDKKCopy.values),
+                mode="lines",
+                name="Tariff",
                 line_shape="hv",
                 legendgroup="1",
             ),
@@ -373,7 +387,7 @@ def prepare_and_run_optimization(
             xaxis3=dict(title="Time"),
             yaxis1=dict(
                 range=[0, np.max(spot_array.reshape(-1)[:i_max]) + 150],
-                title="DKK",
+                title="DKK/MWh",
             ),
             yaxis2=dict(
                 range=[0, np.cumsum(opt_result.base_cost.reshape(-1))[i_max] * 1.1],
