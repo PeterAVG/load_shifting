@@ -80,8 +80,10 @@ spot.loc[r.index, cols] = r.values
 # TODO: not correct until weekdays are taken into account
 N1 = {
     ("C-time", 0, 23, 3, 8): 43.22 / 100 * 1000,  # lavlast
-    ("C-time", 0, 23, 0, 2): 43.22 / 100 * 1000,  # lavlast
-    ("C-time", 0, 23, 9, 12): 43.22 / 100 * 1000,  # lavlast
+    ("C-time", 0, 16, 0, 2): 43.22 / 100 * 1000,  # lavlast
+    ("C-time", 20, 23, 0, 2): 43.22 / 100 * 1000,  # lavlast
+    ("C-time", 0, 16, 9, 12): 43.22 / 100 * 1000,  # lavlast
+    ("C-time", 20, 23, 9, 12): 43.22 / 100 * 1000,  # lavlast
     ("C-time", 17, 19, 0, 2): 105.62 / 100 * 1000,  # spidslast
     ("C-time", 17, 19, 9, 12): 105.62 / 100 * 1000,  # spidslast
     ("B-lav", 23, 23, 3, 8): 16.57 / 100 * 1000,  # lavlast

@@ -92,7 +92,7 @@ def run_optimization(
             for j in range(24):
                 # only look at lower (or upper) triangle of matrix
                 # only look at eligible hours for load shifting
-                if j < i or mask[d, i] or mask[d, j]:
+                if j <= i or mask[d, i] or mask[d, j]:
                     continue
 
                 if abs(i - j) > 1 and immediate_rebound:
@@ -292,6 +292,18 @@ def prepare_and_run_optimization(
                 y=(spot.SpotPriceDKK.values - spot.SpotPriceDKKCopy.values),
                 mode="lines",
                 name="Tariff",
+                line_shape="hv",
+                legendgroup="1",
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=spot.HourUTC,
+                y=(spot.SpotPriceDKK.values),
+                mode="lines",
+                name="Spot price + tariff",
                 line_shape="hv",
                 legendgroup="1",
             ),
